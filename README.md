@@ -1,98 +1,185 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# PPM — API Key Management Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS-based API Key Management service with JWT authentication, MongoDB persistence, and migrate-mongo database migrations.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Table of Contents
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- [Requirements](#requirements)
+- [Environment Configuration](#environment-configuration)
+- [Installation](#installation)
+- [Running the App](#running-the-app)
+- [Database Migrations](#database-migrations)
+- [Running Tests](#running-tests)
+- [API Documentation](#api-documentation)
+- [Technical Notes](#technical-notes)
 
-## Project setup
+---
 
-```bash
-$ npm install
+## API Documentation
+
+The full API reference is published on Postman:
+
+**[📖 Peppermint-API — Postman Docs](https://documenter.getpostman.com/view/37021599/2sBXcGEfLz)**
+
+The collection covers all available endpoints including authentication, API key generation, listing, revocation, and rotation, with example requests and responses.
+
+---
+
+## Requirements
+
+- **Node.js** v18+
+- **npm** v9+
+- **MongoDB** (local instance or remote URI, e.g. MongoDB Atlas)
+
+---
+
+## Environment Configuration
+
+Create a `.env` file in the project root. The following variables are required:
+
+```env
+# MongoDB connection string
+MONGODB_URI=mongodb://localhost:27017/ppm
+
+# JWT
+JWT_SECRET=your-very-strong-secret-key
+JWT_EXPIRES_IN=7d
+
+# App
+PORT=3000
 ```
 
-## Compile and run the project
+> **Note:** Never commit your `.env` file. Add it to `.gitignore`.
+
+---
+
+## Installation
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+---
+
+## Running the App
 
 ```bash
-# unit tests
-$ npm run test
+# Development
+npm run start
 
-# e2e tests
-$ npm run test:e2e
+# Watch mode (auto-restarts on file changes)
+npm run start:dev
 
-# test coverage
-$ npm run test:cov
+# Production mode (requires a build first)
+npm run build
+npm run start:prod
 ```
 
-## Deployment
+The server will start on `http://localhost:3000` (or the `PORT` value in your `.env`).
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+---
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Database Migrations
+
+This project uses [migrate-mongo](https://github.com/seppevs/migrate-mongo) to manage MongoDB schema changes and seed data.
+
+### Configuration
+
+Migrations are configured in `migrate-mongo-config.js`, which reads `MONGODB_URI` from your `.env` file automatically:
+
+```js
+// migrate-mongo-config.js
+require('dotenv').config();
+
+const config = {
+  mongodb: {
+    url: process.env.MONGODB_URI || 'mongodb://localhost:27017/ppm',
+    options: {},
+  },
+  migrationsDir: 'migrations',
+  changelogCollectionName: 'changelog',
+  migrationFileExtension: '.js',
+  moduleSystem: 'commonjs',
+};
+```
+
+Migration history is tracked in a `changelog` collection inside MongoDB.
+
+### Commands
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Check the status of all migrations
+npm run migrate:status
+
+# Apply all pending migrations
+npm run migrate:up
+
+# Roll back the last applied migration
+npm run migrate:down
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Creating a New Migration
 
-## Resources
+```bash
+npx migrate-mongo create <migration-name>
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+This generates a new file in the `migrations/` folder with `up()` and `down()` functions for you to fill in.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
+## Running Tests
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+# Unit tests
+npm run test
 
-## Stay in touch
+# Unit tests in watch mode
+npm run test:watch
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# Test coverage report
+npm run test:cov
 
-## License
+# End-to-end tests
+npm run test:e2e
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+
+## Technical Notes
+
+### DNS Resolver (`main.ts` & `migrate-mongo-config.js`)
+
+Both the application entry point (`src/main.ts`) and the migration config (`migrate-mongo-config.js`) explicitly set the DNS resolver to **Cloudflare's 1.1.1.1**:
+
+```ts
+import * as dns from 'node:dns';
+
+dns.setServers(['1.1.1.1']);
+```
+
+**Why?**
+
+Some server environments (particularly Ubuntu EC2 instances) default to using `127.0.0.53` — the local `systemd-resolved` stub. This can cause intermittent DNS resolution failures when connecting to external services such as **MongoDB Atlas**, because `systemd-resolved` may not correctly forward queries in all network configurations.
+
+By explicitly pointing to `1.1.1.1`, we bypass the local resolver and ensure reliable, consistent DNS resolution in all environments — both locally and in production.
+
+> **Scope:** `dns.setServers()` only affects `dns.resolve*()` calls. It does **not** affect `dns.lookup()`, which is used by lower-level OS networking. For most MongoDB Atlas connections (which go through Node.js's internal resolver), this is sufficient.
+
+### MongoDB Connection
+
+The MongoDB connection URI is loaded from `MONGODB_URI` in the environment. It is used in two places:
+
+1. **App runtime** — via `@nestjs/mongoose` in `AppModule`:
+   ```ts
+   MongooseModule.forRoot(process.env.MONGODB_URI)
+   ```
+
+2. **Migrations** — via `migrate-mongo-config.js`:
+   ```js
+   url: process.env.MONGODB_URI || 'mongodb://localhost:27017/ppm'
+   ```
+
+Both read from the same environment variable, so setting `MONGODB_URI` once in `.env` is sufficient to configure the entire application.

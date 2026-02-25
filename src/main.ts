@@ -1,12 +1,19 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import * as dns from 'node:dns';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { MongoExceptionFilter } from './common/filters/mongo-exception.filter';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+
+  // DNS Configuration
+  logger.log(`Default DNS servers: ${dns.getServers()}`);
+  dns.setServers(['1.1.1.1']);
+  logger.log(`New DNS servers: ${dns.getServers()}`);
+
   const app = await NestFactory.create(AppModule);
 
   // Security
@@ -28,15 +35,6 @@ async function bootstrap() {
     new MongoExceptionFilter(),
   );
 
-  // Swagger API docs
-  const config = new DocumentBuilder()
-    .setTitle('API Key Management')
-    .setDescription('API Key Management Service — generate, list, revoke, and rotate API keys')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
 
   await app.listen(process.env.PORT ?? 3000);
 }

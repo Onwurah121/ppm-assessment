@@ -1,12 +1,11 @@
 require('dotenv').config();
+const dns = require('node:dns');
+dns.setServers(['1.1.1.1']);
 
 const config = {
     mongodb: {
         url: process.env.MONGODB_URI || 'mongodb://localhost:27017/ppm',
-        options: {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        },
+        options: {},
     },
     migrationsDir: 'migrations',
     changelogCollectionName: 'changelog',

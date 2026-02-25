@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getModelToken } from '@nestjs/mongoose';
+import { getModelToken, getConnectionToken } from '@nestjs/mongoose';
 import {
   BadRequestException,
   NotFoundException,
@@ -45,12 +45,23 @@ describe('ApiKeysService', () => {
     create: jest.fn().mockResolvedValue({}),
   };
 
+  // Mock session that executes the withTransaction callback inline
+  const mockSession = {
+    withTransaction: jest.fn().mockImplementation(async (fn: () => Promise<void>) => fn()),
+    endSession: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockConnection = {
+    startSession: jest.fn().mockResolvedValue(mockSession),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ApiKeysService,
         { provide: getModelToken(ApiKey.name), useValue: mockApiKeyModel },
         { provide: getModelToken(AccessLog.name), useValue: mockAccessLogModel },
+        { provide: getConnectionToken(), useValue: mockConnection },
       ],
     }).compile();
 
@@ -59,6 +70,11 @@ describe('ApiKeysService', () => {
     accessLogModel = module.get(getModelToken(AccessLog.name));
 
     jest.clearAllMocks();
+    // Re-apply persistent mocks cleared by clearAllMocks
+    mockSession.withTransaction.mockImplementation(async (fn: () => Promise<void>) => fn());
+    mockSession.endSession.mockResolvedValue(undefined);
+    mockConnection.startSession.mockResolvedValue(mockSession);
+    mockAccessLogModel.create.mockResolvedValue([{}]);
   });
 
   describe('generate', () => {
@@ -68,9 +84,9 @@ describe('ApiKeysService', () => {
 
       const result = await service.generate(userId, { name: 'Test Key' });
 
-      expect(result).toHaveProperty('apiKey');
-      expect(result).toHaveProperty('rawKey');
-      expect(result.rawKey).toMatch(/^ppm_/);
+      expect(result).toHaveProperty('data');
+      expect(result.data).toHaveProperty('key');
+      expect(result.data.key).toMatch(/^ppm_/);
       expect(mockApiKeyModel.countDocuments).toHaveBeenCalled();
       expect(mockApiKeyModel.create).toHaveBeenCalled();
       expect(mockAccessLogModel.create).toHaveBeenCalled();
@@ -92,7 +108,8 @@ describe('ApiKeysService', () => {
 
       const result = await service.generate(userId, { name: 'Key 3' });
 
-      expect(result).toHaveProperty('rawKey');
+      expect(result).toHaveProperty('data');
+      expect(result.data).toHaveProperty('key');
     });
   });
 
@@ -105,7 +122,8 @@ describe('ApiKeysService', () => {
 
       const result = await service.list(userId);
 
-      expect(result).toEqual([mockApiKey]);
+      expect(result).toHaveProperty('data');
+      expect(Array.isArray(result.data)).toBe(true);
       expect(selectMock).toHaveBeenCalledWith('-keyHash');
     });
   });
@@ -179,20 +197,17 @@ describe('ApiKeysService', () => {
         }),
       };
       mockApiKeyModel.findById.mockResolvedValue(activeKey);
-      // For the generate call inside rotate: count = 1 (the old key counts, but we're about to revoke it)
-      mockApiKeyModel.countDocuments.mockResolvedValue(1);
       const newKeyId = new Types.ObjectId();
-      mockApiKeyModel.create.mockResolvedValue({
-        ...mockApiKey,
-        _id: newKeyId,
-        name: 'Rotated Key',
-      });
+      const newKeyDoc = { ...mockApiKey, _id: newKeyId, name: 'Rotated Key' };
+      // Transactional create returns an array
+      mockApiKeyModel.create.mockResolvedValue([newKeyDoc]);
 
       const result = await service.rotate(userId, keyId.toString(), { name: 'Rotated Key' });
 
-      expect(result).toHaveProperty('newApiKey');
-      expect(result).toHaveProperty('rawKey');
-      expect(result).toHaveProperty('oldApiKey');
+      expect(result).toHaveProperty('data');
+      expect(result.data).toHaveProperty('newKey');
+      expect(result.data).toHaveProperty('oldKey');
+      expect(result.data.newKey).toHaveProperty('key');
       expect(activeKey.status).toBe(ApiKeyStatus.REVOKED);
       expect(activeKey.revokedAt).toBeInstanceOf(Date);
     });
@@ -219,15 +234,12 @@ describe('ApiKeysService', () => {
         }),
       };
       mockApiKeyModel.findById.mockResolvedValue(activeKey);
-      mockApiKeyModel.countDocuments.mockResolvedValue(1);
-      mockApiKeyModel.create.mockResolvedValue({
-        ...mockApiKey,
-        name: 'Original Key (rotated)',
-      });
+      const rotatedKeyDoc = { ...mockApiKey, name: 'Original Key (rotated)' };
+      mockApiKeyModel.create.mockResolvedValue([rotatedKeyDoc]);
 
       const result = await service.rotate(userId, keyId.toString(), {});
 
-      expect(result.newApiKey.name).toBe('Original Key (rotated)');
+      expect(result.data.newKey.name).toBe('Original Key (rotated)');
     });
   });
 });

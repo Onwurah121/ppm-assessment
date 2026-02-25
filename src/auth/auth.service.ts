@@ -18,7 +18,7 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<{ accessToken: string }> {
+  async register(dto: RegisterDto): Promise<any> {
     const existingUser = await this.userModel.findOne({ email: dto.email.toLowerCase() });
     if (existingUser) {
       throw new ConflictException('Email already registered');
@@ -33,10 +33,17 @@ export class AuthService {
     const payload = { sub: user._id, email: user.email };
     const accessToken = this.jwtService.sign(payload);
 
-    return { accessToken };
+    return {
+      message: 'User registered successfully',
+      accessToken,
+      user: {
+        id: user._id,
+        email: user.email,
+      },
+    };
   }
 
-  async login(dto: LoginDto): Promise<{ accessToken: string }> {
+  async login(dto: LoginDto): Promise<any> {
     const user = await this.userModel.findOne({ email: dto.email.toLowerCase() });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -50,7 +57,14 @@ export class AuthService {
     const payload = { sub: user._id, email: user.email };
     const accessToken = this.jwtService.sign(payload);
 
-    return { accessToken };
+    return {
+      message: 'User logged in successfully',
+      accessToken,
+      user: {
+        id: user._id,
+        email: user.email,
+      },
+    };
   }
 
   async validateUser(userId: string): Promise<UserDocument | null> {
