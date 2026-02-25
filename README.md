@@ -27,6 +27,14 @@ The collection covers all available endpoints including authentication, API key 
 
 ---
 
+## Live Deployment
+
+The application is deployed and accessible at:
+
+**[http://3.91.150.113/](http://3.91.150.113/)**
+
+---
+
 ## Requirements
 
 - **Node.js** v18+
